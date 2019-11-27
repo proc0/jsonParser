@@ -1,11 +1,8 @@
-{-# LANGUAGE OverloadedStrings #-}
-
-module Main where
-
 import Control.Applicative 
 import Data.Function
 import Data.Char
 import Data.Tuple
+
 
 left = fst
 right = snd
@@ -17,13 +14,15 @@ main = do
 readJson :: FilePath -> IO String
 readJson path = do
     result <- parseFile path json
-    return $ show result
+    return $ case result of
+        Right result -> (show $ right result) ++ "\n------\n" ++ (show $ left result)
+        Left failure -> show failure
 
-parseFile :: FilePath -> Parser a -> IO (Maybe a)
+parseFile :: FilePath -> Parser a -> IO (Either Failure (Scrap,a))
 parseFile path parser = do
     file <- readFile path
     let result = runParser parser file
-    return $ right <$> result
+    return result
 
 -- JSON
     
@@ -132,18 +131,18 @@ couple pair = parsePair (head pair, last pair)
 
 character :: Char -> Parser Char
 character ch = Parser char
-    where char [] = Nothing
+    where char [] = Left "done"
           char (c:cs)
-            | c == ch = Just (cs, ch)
-            | otherwise = Nothing
+            | c == ch = Right (cs, ch)
+            | otherwise = Left "done"
 
 guard :: Parser [a] -> Parser [a]
 guard (Parser match) = Parser $ 
     \input -> do
         (scrap, result) <- match input
         if not (null result)
-        then Just (scrap, result)
-        else Nothing
+        then Right (scrap, result)
+        else Left "safe"
 
 delimit :: Parser a -> Parser b -> Parser [b]
 delimit delimitter match = (:) <$> 
@@ -152,36 +151,38 @@ delimit delimitter match = (:) <$>
 
 group :: (Char -> Bool) -> Parser String
 group filter = Parser $ -- (result, rest)
-    \input -> Just $ swap (span filter input)
+    \input -> Right $ swap (span filter input)
 
 -- Parser
 ----------
 
 type Scrap = String
-
+type Failure = String
 newtype Parser result = Parser 
     { 
-        runParser :: String -> Maybe (Scrap, result) 
+        runParser :: String -> Either Failure (Scrap, result)
     }
 
-instance Functor Parser where                       -- Parser is a functor since
-    fmap rematch (Parser match) = Parser $          -- given a transform and a Parser
-        \input -> do                                -- it returns a Parser that
-            (scrap, result) <- match input          -- parses its input and returns
-            Just (scrap, rematch result)            -- the transformed result with the rest.
+instance Functor Parser where                       
+    fmap rematch (Parser match) = Parser $          
+        \input -> do                                
+            (scrap, output) <- match input                   
+            return (scrap, rematch output)    
 
-instance Applicative Parser where                   -- Parser is an Applicative since
-    pure result = Parser $                          -- given a result it returns a Parser  
-        \input -> Just (input, result)              -- that returns its input and that result,
-    Parser prematch <*> Parser match = Parser $     -- and given two Parsers it returns a Parser
-        \input -> do                                -- 
-            (rest, rematch) <- prematch input       -- that uses the first parser on the input,
-            (scrap, result) <- match rest           -- pipes the rest to the second parser,
-            Just (scrap, rematch result)            -- and composes their results.
+instance Applicative Parser where                   
+    pure result = Parser $                           
+        \input -> Right (input, result)
+    Parser process <*> Parser parse = Parser $
+        \input -> do
+            (output, subparse) <- process input
+            (scrap, result) <- parse output
+            return (scrap, subparse result)
 
 instance Alternative Parser where
     empty = Parser $ 
-        \_ -> Nothing
-    Parser match <|> Parser rematch = Parser $ 
-        \input -> match input <|> rematch input
+        \_ -> Left "empty"
+    Parser process <|> Parser parse = Parser $ 
+        \input -> case process input of
+            Right result -> Right result
+            Left failure -> parse input
 
