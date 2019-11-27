@@ -15,10 +15,10 @@ readJson :: FilePath -> IO String
 readJson path = do
     result <- parseFile path json
     return $ case result of
-        Right result -> (show $ right result) ++ "\n------\n" ++ (show $ left result)
-        Left failure -> show failure
+        Right result -> show $ right result
+        Left failure -> "Invalid JSON"
 
-parseFile :: FilePath -> Parser a -> IO (Either Failure (Scrap,a))
+parseFile :: FilePath -> Parser json -> IO (Result json)
 parseFile path parser = do
     file <- readFile path
     let result = runParser parser file
@@ -112,10 +112,10 @@ colon :: Parser Char
 colon = character ':'
 
 brace :: (Parser Char, Parser Char)
-brace = couple "{}"
+brace = pair "{}"
 
 bracket :: (Parser Char, Parser Char)
-bracket = couple "[]"
+bracket = pair "[]"
 
 -- parsers
 
@@ -125,24 +125,25 @@ the parse = ws *> parse <* ws
 token :: String -> Parser String
 token = sequenceA . map character
 
-couple :: String -> (Parser Char, Parser Char) 
-couple pair = parsePair (head pair, last pair)
-    where parsePair = uncurry ((,) `on` character)
+pair :: String -> (Parser Char, Parser Char)
+pair (left:right:[]) = couple (left, right)
+    where couple = uncurry ((,) `on` character)
+pair _ = (empty, empty)
 
 character :: Char -> Parser Char
 character ch = Parser char
-    where char [] = Left "done"
+    where char [] = Left "Done"
           char (c:cs)
             | c == ch = Right (cs, ch)
-            | otherwise = Left "done"
+            | otherwise = Left "No match: character"
 
 guard :: Parser [a] -> Parser [a]
 guard (Parser match) = Parser $ 
     \input -> do
-        (scrap, result) <- match input
+        (source, result) <- match input
         if not (null result)
-        then Right (scrap, result)
-        else Left "safe"
+        then Right (source, result)
+        else Left "No match: number"
 
 delimit :: Parser a -> Parser b -> Parser [b]
 delimit delimitter match = (:) <$> 
@@ -156,31 +157,33 @@ group filter = Parser $ -- (result, rest)
 -- Parser
 ----------
 
-type Scrap = String
+type Source = String
 type Failure = String
-newtype Parser result = Parser 
+type Result match = Either Failure (Source, match)
+
+newtype Parser json = Parser
     { 
-        runParser :: String -> Either Failure (Scrap, result)
+        runParser :: Source -> Result json
     }
 
 instance Functor Parser where                       
-    fmap rematch (Parser match) = Parser $          
+    fmap process (Parser parse) = Parser $          
         \input -> do                                
-            (scrap, output) <- match input                   
-            return (scrap, rematch output)    
+            (source, output) <- parse input                   
+            return (source, process output)    
 
 instance Applicative Parser where                   
     pure result = Parser $                           
         \input -> Right (input, result)
     Parser process <*> Parser parse = Parser $
         \input -> do
-            (output, subparse) <- process input
-            (scrap, result) <- parse output
-            return (scrap, subparse result)
+            (partial, connect) <- process input
+            (source, result) <- parse partial
+            return (source, connect result)
 
 instance Alternative Parser where
     empty = Parser $ 
-        \_ -> Left "empty"
+        \_ -> Left "Empty"
     Parser process <|> Parser parse = Parser $ 
         \input -> case process input of
             Right result -> Right result
