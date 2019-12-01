@@ -1,28 +1,10 @@
+module MaybeJson (Parser, runParser, Result, json) where
+
 import Control.Applicative 
 import Data.Function
 import Data.Char
 import Data.Tuple
-
-
-left = fst
-right = snd
-
-main :: IO String
-main = do
-    readJson "./test.json" 
-
-readJson :: FilePath -> IO String
-readJson path = do
-    result <- parseFile path json
-    return $ case result of
-        Right result -> show $ right result
-        Left failure -> "Invalid JSON"
-
-parseFile :: FilePath -> Parser json -> IO (Result json)
-parseFile path parser = do
-    file <- readFile path
-    let result = runParser parser file
-    return result
+import Alias
 
 -- JSON
     
@@ -112,10 +94,10 @@ colon :: Parser Char
 colon = character ':'
 
 brace :: (Parser Char, Parser Char)
-brace = pair "{}"
+brace = couple "{}"
 
 bracket :: (Parser Char, Parser Char)
-bracket = pair "[]"
+bracket = couple "[]"
 
 -- parsers
 
@@ -125,25 +107,24 @@ the parse = ws *> parse <* ws
 token :: String -> Parser String
 token = sequenceA . map character
 
-pair :: String -> (Parser Char, Parser Char)
-pair (left:right:[]) = couple (left, right)
-    where couple = uncurry ((,) `on` character)
-pair _ = (empty, empty)
+couple :: String -> (Parser Char, Parser Char) 
+couple pair = parsePair (head pair, last pair)
+    where parsePair = uncurry ((,) `on` character)
 
 character :: Char -> Parser Char
 character ch = Parser char
-    where char [] = Left "Done"
+    where char [] = Nothing
           char (c:cs)
-            | c == ch = Right (cs, ch)
-            | otherwise = Left "No match: character"
+            | c == ch = Just (cs, ch)
+            | otherwise = Nothing
 
 guard :: Parser [a] -> Parser [a]
 guard (Parser match) = Parser $ 
     \input -> do
-        (source, result) <- match input
+        (scrap, result) <- match input
         if not (null result)
-        then Right (source, result)
-        else Left "No match: number"
+        then Just (scrap, result)
+        else Nothing
 
 delimit :: Parser a -> Parser b -> Parser [b]
 delimit delimitter match = (:) <$> 
@@ -152,40 +133,36 @@ delimit delimitter match = (:) <$>
 
 group :: (Char -> Bool) -> Parser String
 group filter = Parser $ -- (result, rest)
-    \input -> Right $ swap (span filter input)
+    \input -> Just $ swap (span filter input)
 
 -- Parser
 ----------
 
-type Source = String
-type Failure = String
-type Result match = Either Failure (Source, match)
+type Scrap = String
 
-newtype Parser json = Parser
+newtype Parser result = Parser 
     { 
-        runParser :: Source -> Result json
+        runParser :: String -> Maybe (Scrap, result) 
     }
 
-instance Functor Parser where                       
-    fmap process (Parser parse) = Parser $          
-        \input -> do                                
-            (source, output) <- parse input                   
-            return (source, process output)    
+instance Functor Parser where                       -- Parser is a functor since
+    fmap rematch (Parser match) = Parser $          -- given a transform and a Parser
+        \input -> do                                -- it returns a Parser that
+            (scrap, result) <- match input          -- parses its input and returns
+            Just (scrap, rematch result)            -- the transformed result with the rest.
 
-instance Applicative Parser where                   
-    pure result = Parser $                           
-        \input -> Right (input, result)
-    Parser process <*> Parser parse = Parser $
-        \input -> do
-            (partial, connect) <- process input
-            (source, result) <- parse partial
-            return (source, connect result)
+instance Applicative Parser where                   -- Parser is an Applicative since
+    pure result = Parser $                          -- given a result it returns a Parser  
+        \input -> Just (input, result)              -- that returns its input and that result,
+    Parser prematch <*> Parser match = Parser $     -- and given two Parsers it returns a Parser
+        \input -> do                                -- 
+            (rest, rematch) <- prematch input       -- that uses the first parser on the input,
+            (scrap, result) <- match rest           -- pipes the rest to the second parser,
+            Just (scrap, rematch result)            -- and composes their results.
 
 instance Alternative Parser where
     empty = Parser $ 
-        \_ -> Left "Empty"
-    Parser process <|> Parser parse = Parser $ 
-        \input -> case process input of
-            Right result -> Right result
-            Left failure -> parse input
+        \_ -> Nothing
+    Parser match <|> Parser rematch = Parser $ 
+        \input -> match input <|> rematch input
 
