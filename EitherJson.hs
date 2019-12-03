@@ -34,7 +34,7 @@ object = (>$<) rule where
     members = delimit member $ ws comma          
     member  = couple <$> ws string <*> ws colon <*> element
 
-array = (>$<) rule where
+array  = (>$<) rule where
     rule     = left bracket *> ws elements <* right bracket
     elements = delimit element $ ws comma
 
