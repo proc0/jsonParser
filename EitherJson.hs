@@ -46,12 +46,13 @@ void    :: Value -> Parser Value
 
 number  = (<$> integers) . (. read)
 
-bool    = (<$> match) . (. choice) where
+bool    = (<$> match) . (. key) where
             match = true <|> false
-            choice "true"  = True
-            choice "false" = False
+            key word 
+              | word == _TRUE  = True
+              | word == _FALSE = False
 
-void    = (<$> keyword "null") . const 
+void    = (<$> keyword _NULL) . const 
 
 ws :: Parser a -> Parser a
 ws token = whitespace *> token <* whitespace
@@ -75,8 +76,8 @@ integers    :: Parser String
 string      = quote *> characters <* quote
 characters  = group $ (/=) '"'
 whitespace  = group isSpace
-true        = keyword "true"
-false       = keyword "false"
+true        = keyword _TRUE
+false       = keyword _FALSE
 integers    = guard digits where
     digits  = group isDigit
 
@@ -104,10 +105,10 @@ keyword = sequenceA . map character
 pair (left:right:[]) = couple (left, right)
     where couple = uncurry ((,) `on` character)
 character ch = Parser char where 
-    char [] = Left "Done"
+    char [] = Left _LEFT_CHR_MSG
     char (c:cs)
         | c == ch = Right (cs, ch)
-        | otherwise = Left "No match: character"
+        | otherwise = Left _LEFT_STR_MSG
 -- constructs parser of lists from a list of parsers
 delimit match delimitter = (:) <$> 
     match <*> group <|> pure []
@@ -121,4 +122,4 @@ guard (Parser match) = Parser $
         (source, result) <- match input
         if not (null result)
         then Right (source, result)
-        else Left "No match"
+        else Left _LEFT_GRD_MSG
