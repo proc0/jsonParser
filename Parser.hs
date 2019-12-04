@@ -1,15 +1,16 @@
 module Parser where
 
 import Control.Applicative 
+import Alias
 
-newtype Parser value = Parser
+newtype Parser match = Parser
     { 
-        decode :: Source -> Result value
+        decode :: Source -> Result match
     }
 
 type Source = String
-type Invalid = String
-type Result value = Either Invalid (Source, value)
+type Stack = [Either String Source]
+type Result match = Either Stack (Source, match)
 
 instance Functor Parser where                       
     fmap process (Parser parse) = Parser $          
@@ -21,15 +22,18 @@ instance Applicative Parser where
     pure result = Parser $                           
         \input -> Right (input, result)
     Parser process <*> Parser parse = Parser $
-        \input -> do
-            (partial, compose) <- process input
-            (source, result) <- parse partial
-            return (source, compose result)
+        \input -> case process input of
+            Right (partial, compose) -> case parse partial of
+                Right (source, result) -> Right (source, compose result)
+                Left stack -> Left $ stack ++ [Left $ _INVALID ++ partial]
+            Left stack -> Left stack
 
 instance Alternative Parser where
     empty = Parser $ 
-        \_ -> Left "Empty"
+        \_ -> Left []
     Parser process <|> Parser parse = Parser $ 
         \input -> case process input of
-            Right result -> Right result
-            Left failure -> parse input
+            Right proceed -> Right proceed
+            Left stack -> case parse input of
+                Left end -> Left $ stack ++ [Left _NO_MATCH] ++ end
+                Right result -> Right result

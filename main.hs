@@ -1,5 +1,7 @@
 module Main where
 
+import Data.Either
+import Text.Pretty.Simple (pPrint)
 import EitherJson
 import Alias
 
@@ -12,13 +14,22 @@ parseFile path parser = do
     let result = decode parser file
     return result
 
-readJson :: FilePath -> IO String
+readJson :: FilePath -> IO ()
 readJson path = do
-    Right result <- parseFile path json
-    return $ show result
+    output <- parseFile path json
+    case output of
+        Right (source, result) -> pPrint result
+        Left stack -> pPrint stack
 
-filepath = "./test.json"
+analyzeJson :: FilePath -> IO ()
+analyzeJson path = do
+    output <- parseFile path json
+    let analysis = partitionEithers [output]
+    pPrint analysis
 
-main :: IO String
+filepath = "./tests/mock/invalid2.json"
+
+main :: IO ()
 main = do
+    -- analyzeJson filepath
     readJson filepath

@@ -18,7 +18,7 @@ import Parser
 json  :: Parser Value
 value :: Parser Value 
 
-json = element
+json  = element
 value = object  OBJECT
     <|> array   ARRAY
     <|> string  >$< STRING
@@ -31,12 +31,12 @@ array       :: ([Value] -> Value) -> Parser Value
 element     :: Parser Value
 
 object      = (>$<) rule where 
-    rule    = left brace *> ws members <* right brace
-    members = delimit member $ ws comma          
-    member  = couple <$> ws string <*> ws colon <*> element
+    rule    = left brace *> members <* right brace
+    members = delimit member comma          
+    member  = couple <$> ws string <*> colon <*> element
 
 array       = (>$<) rule where
-    rule    = left bracket *> ws elements <* right bracket
+    rule    = left bracket *> elements <* right bracket
     elements = delimit element $ ws comma
 
 element = ws value
@@ -75,12 +75,12 @@ false       :: Parser String
 integers    :: Parser String
 
 string      = quote *> characters <* quote
-characters  = group $ (/=) '"'
-whitespace  = group isSpace
+characters  = sparse $ (/=) '"'
+whitespace  = sparse isSpace
 true        = keyword _TRUE
 false       = keyword _FALSE
-integers    = guard digits where
-    digits  = group isDigit
+integers    = guard _NO_INTS digits where
+    digits  = sparse isDigit
 
 quote       :: Parser Char
 comma       :: Parser Char
@@ -88,45 +88,45 @@ colon       :: Parser Char
 brace       :: (Parser Char, Parser Char)
 bracket     :: (Parser Char, Parser Char)
 
-quote       = character '"'
-comma       = character ','
-colon       = character ':'
-brace       = pair      "{}"
-bracket     = pair      "[]"
+quote       = character _TOKEN '"'
+comma       = character _TOKEN ','
+colon       = character _TOKEN ':'
+brace       = pair _BRACE "{}"
+bracket     = pair _BRACKET "[]"
 
 keyword     :: String -> Parser String
-pair        :: String -> (Parser Char, Parser Char)
-character   :: Char -> Parser Char
+pair        :: String -> String -> (Parser Char, Parser Char)
+character   :: String -> Char -> Parser Char
 delimit     :: Parser a -> Parser b -> Parser [a]
-group       :: (Char -> Bool) -> Parser String
-guard       :: Parser [a] -> Parser [a]
+sparse      :: (Char -> Bool) -> Parser String
+guard       :: String -> Parser [a] -> Parser [a]
 
-keyword = sequenceA . map character
+keyword = sequenceA . map (character _KEYWORD)
 
 -- constructs tuple of parsers for enclosures
-pair (start:end:[]) = parse (start, end) where
-    parse = uncurry ((,) `on` character)
+pair label (start:end:[]) = parse (start, end) where
+    parse = uncurry ((,) `on` (character label))
 
 -- primitive recursive parser
-character ch = Parser char where 
-    char [] = Left _LEFT_CHR_MSG
+character label ch = Parser char where 
+    char [] = Left []
     char (c:cs)
         | c == ch = Right (cs, ch)
-        | otherwise = Left _LEFT_STR_MSG
+        | otherwise = Left [Left $ label ++ [ch]]
 
 -- constructs parser of lists from a list of parsers
 delimit match delimitter = (:) <$> 
-    match <*> group <|> pure []
-        where group = many $ delimitter *> match
+    match <*> parse <|> pure []
+        where parse = many $ delimitter *> match
 
 -- constructs a parser that groups by character
-group filter = Parser $ -- (result, rest)
+sparse filter = Parser $ -- (result, rest)
     \input -> Right $ swap (span filter input)
 
 -- constructs a parser that guards a parser
-guard (Parser match) = Parser $ 
+guard label (Parser match) = Parser $ 
     \input -> do
         (source, result) <- match input
         if not (null result)
         then Right (source, result)
-        else Left _LEFT_GRD_MSG
+        else Left [Left label]
