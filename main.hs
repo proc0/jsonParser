@@ -20,16 +20,9 @@ readJson path = do
     case output of
         Right (source, result) -> pPrint result
         Left stack -> pPrint stack
-
-analyzeJson :: FilePath -> IO ()
-analyzeJson path = do
-    output <- parseFile path json
-    let analysis = partitionEithers [output]
-    pPrint analysis
-
+        
 filepath = "./tests/mock/invalid2.json"
 
 main :: IO ()
 main = do
-    -- analyzeJson filepath
     readJson filepath

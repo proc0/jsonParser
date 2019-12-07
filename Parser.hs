@@ -25,7 +25,7 @@ instance Applicative Parser where
         \input -> case process input of
             Right (partial, compose) -> case parse partial of
                 Right (source, result) -> Right (source, compose result)
-                Left stack -> Left $ stack ++ [Left $ _INVALID ++ partial]
+                Left stack -> Left $ stack ++ [Left $ _invalid ++ partial]
             Left stack -> Left stack
 
 instance Alternative Parser where
@@ -35,5 +35,5 @@ instance Alternative Parser where
         \input -> case process input of
             Right proceed -> Right proceed
             Left stack -> case parse input of
-                Left end -> Left $ stack ++ [Left _NO_MATCH] ++ end
+                Left end -> Left $ stack ++ [Left _no_match] ++ end
                 Right result -> Right result

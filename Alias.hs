@@ -15,28 +15,28 @@ couple = (\name _ value -> (name, value))
 duplicate :: String -> (String, String)
 duplicate label = fromJust $ (head <$>) <$> uncons (replicate 2 label)
 
-_TRUE     :: String
-_FALSE    :: String
-_NULL     :: String
-_CHAR     :: String
-_TOKEN    :: String
-_BRACE    :: String
-_BRACKET  :: String
-_EMPTY    :: String
-_KEYWORD  :: String
-_INVALID  :: String
-_NO_MATCH :: String
-_NO_INTS  :: String
+_null     :: String
+_true     :: String
+_false    :: String
+_char     :: String
+_delimit  :: String
+_brace    :: String
+_bracket  :: String
+_empty    :: String
+_keyword  :: String
+_invalid  :: String
+_no_match :: String
+_no_ints  :: String
 
-_NULL     = "null"
-_TRUE     = "true"
-_FALSE    = "false"
-_CHAR     = "Char: "
-_TOKEN    = "Token: "
-_BRACE    = "Object: "
-_BRACKET  = "Array: "
-_EMPTY    = "Empty"
-_KEYWORD  = "Keyword: "
-_INVALID  = "Invalid: "
-_NO_MATCH = "No Match"
-_NO_INTS  = "No Integers"
+_null     = "null"
+_true     = "true"
+_false    = "false"
+_char     = "Char: "
+_delimit  = "Delimitter: "
+_brace    = "Object: "
+_bracket  = "Array: "
+_empty    = "Empty"
+_keyword  = "Keyword: "
+_invalid  = "Invalid: "
+_no_match = "No Match"
+_no_ints  = "No Integers"
