@@ -33,7 +33,7 @@ element     :: Parser Value
 object      = (>$<) rule where 
     rule    = left brace *> members <* right brace
     members = delimit member comma          
-    member  = couple <$> ws string <*> colon <*> element
+    member  = touple <$> ws string <*> colon <*> element
 
 array       = (>$<) rule where
     rule    = left bracket *> elements <* right bracket

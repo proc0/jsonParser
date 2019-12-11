@@ -6,8 +6,8 @@ import Data.Maybe
 left = fst
 right = snd
 
-couple :: a -> b -> c -> (a, c)
-couple = (\name _ value -> (name, value))
+touple :: a -> b -> c -> (a, c)
+touple = (\name _ value -> (name, value))
 
 (>$<) :: Functor f => f a -> (a -> b) -> f b
 (>$<) = flip fmap
@@ -38,5 +38,5 @@ _bracket  = "Array: "
 _empty    = "Empty"
 _keyword  = "Keyword: "
 _invalid  = "Invalid: "
-_no_match = "No Match"
+_no_match = "Abort"
 _no_ints  = "No Integers"

@@ -1,8 +1,8 @@
 module Main where
 
-import Data.Either
+import Data.Either 
 import Text.Pretty.Simple (pPrint)
-import EitherJson
+import EitherJson (parser, decode, Json, Result)
 import Alias
 
 parseFile :: 
@@ -17,6 +17,8 @@ parseFile path parser = do
 readJson :: FilePath -> IO ()
 readJson path = do
     output <- parseFile path json
+    -- return $ do
+    --     pPrint <$> output
     case output of
         Right (source, result) -> pPrint result
         Left stack -> pPrint stack

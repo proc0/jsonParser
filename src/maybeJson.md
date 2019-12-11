@@ -1,3 +1,4 @@
+``haskell
 module MaybeJson (Parser, runParser, Result, json) where
 
 import Control.Applicative 
@@ -166,3 +167,4 @@ instance Alternative Parser where
     Parser match <|> Parser rematch = Parser $ 
         \input -> match input <|> rematch input
 
+``
